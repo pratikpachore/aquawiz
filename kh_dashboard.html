@@ -66,7 +66,7 @@
             display: flex;
             gap: 15px;
             justify-content: center;
-            align-items: center;
+            align-items: flex-end;
             margin: 20px 0 30px 0;
             flex-wrap: wrap;
         }
@@ -77,6 +77,7 @@
             border-radius: 8px;
             outline: none;
             transition: all 0.3s ease;
+            box-sizing: border-box;
         }
         .date-input:focus {
             border-color: #764ba2;
@@ -95,6 +96,7 @@
             display: flex;
             flex-direction: column;
             align-items: flex-start;
+            justify-content: flex-end;
         }
         .btn {
             padding: 12px 30px;
@@ -453,19 +455,25 @@
             }
             .controls {
                 flex-direction: column;
-                gap: 10px;
+                gap: 15px;
+                padding: 15px;
             }
             .input-group {
                 width: 100%;
+                align-items: stretch;
             }
             .date-input {
                 width: 100%;
                 padding: 10px 15px;
                 font-size: 0.95em;
+                box-sizing: border-box;
+                margin: 0;
             }
             .btn {
                 width: 100%;
                 padding: 12px 20px;
+                box-sizing: border-box;
+                margin: 0;
             }
             .chart-container {
                 height: 55vh;
@@ -510,6 +518,10 @@
             .sample-badge {
                 padding: 2px 8px;
                 font-size: 0.85em;
+            }
+            .input-label {
+                width: 100%;
+                text-align: left;
             }
             .input-label::before {
                 content: "";

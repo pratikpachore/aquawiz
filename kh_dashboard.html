@@ -1,0 +1,1766 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KH Alkalinity Monitor</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            transition: background 0.3s ease;
+        }
+        body.dark-mode {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        }
+        .container {
+            max-width: 95%;
+            width: 100%;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        body.dark-mode .container {
+            background-color: #0f3460;
+            color: #e8e8e8;
+        }
+        @media (min-width: 1920px) {
+            .container {
+                max-width: 90%;
+            }
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            position: relative;
+            z-index: 10;
+        }
+        h1 {
+            color: #2C3E50;
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #7F8C8D;
+            font-size: 1.1em;
+            font-weight: 300;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0 30px 0;
+            flex-wrap: wrap;
+        }
+        .date-input {
+            padding: 12px 20px;
+            font-size: 1em;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+        .date-input:focus {
+            border-color: #764ba2;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .input-label {
+            font-size: 0.9em;
+            color: #555;
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+        .input-label::before {
+            content: "📌 ";
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .btn {
+            padding: 12px 30px;
+            font-size: 1em;
+            font-weight: 600;
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        .btn:active {
+            transform: translateY(0);
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2em;
+            color: #667eea;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        body.dark-mode .spinner {
+            border: 4px solid #2C3E50;
+            border-top: 4px solid #5fa8d3;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error {
+            background: #eb3349;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 25px;
+            border-radius: 12px;
+            color: white;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+        .stat-card.green {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        .stat-card.red {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+        }
+        .stat-card.blue {
+            background: linear-gradient(135deg, #2E86AB 0%, #5FA8D3 100%);
+        }
+        .stat-card.orange {
+            background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);
+        }
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        .stat-value {
+            font-size: 2em;
+            font-weight: 700;
+        }
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin: 30px 0;
+            width: 100%;
+            height: 75vh;
+            min-height: 700px;
+            display: flex;
+            flex-direction: column;
+        }
+        #chart {
+            flex: 1;
+            width: 100%;
+            min-height: 0;
+        }
+        h2 {
+            color: #2C3E50;
+            margin: 50px 0 20px 0;
+            font-size: 1.8em;
+            font-weight: 600;
+            border-left: 5px solid #667eea;
+            padding-left: 15px;
+        }
+        h2:first-of-type {
+            margin-top: 40px;
+        }
+        .table-container {
+            overflow-x: auto;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        th, td {
+            padding: 16px;
+            text-align: left;
+        }
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.9em;
+            letter-spacing: 0.5px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        tr {
+            border-bottom: 1px solid #ecf0f1;
+            transition: background-color 0.3s ease;
+        }
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+        tr.low-value {
+            background-color: rgba(235, 51, 73, 0.1);
+        }
+        tr.high-value {
+            background-color: rgba(17, 153, 142, 0.1);
+        }
+        td {
+            white-space: nowrap;
+        }
+        th:nth-child(1), td:nth-child(1) {
+            width: 15%;
+        }
+        th:nth-child(2), td:nth-child(2) {
+            width: 45%;
+        }
+        th:nth-child(3), td:nth-child(3) {
+            width: 25%;
+            font-weight: 600;
+            color: #2C3E50;
+            font-size: 1.1em;
+        }
+        th:nth-child(4), td:nth-child(4) {
+            width: 15%;
+            text-align: center;
+        }
+        .sample-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #ecf0f1;
+            color: #95a5a6;
+            font-size: 0.9em;
+        }
+        #content {
+            display: none;
+        }
+        #content.visible {
+            display: block;
+        }
+        #setupScreen {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        #setupScreen.hidden {
+            display: none;
+        }
+        .setup-box {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .setup-box h2 {
+            color: #2C3E50;
+            margin-bottom: 20px;
+            border: none;
+            padding: 0;
+        }
+        .setup-box p {
+            color: #7F8C8D;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .setup-input {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 1.1em;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            outline: none;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            color: #2C3E50;
+            text-align: center;
+        }
+        .setup-input:focus {
+            border-color: #764ba2;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .change-device-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-left: 10px;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+        .change-device-btn:hover {
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+            transform: translateY(-2px);
+        }
+        .change-device-btn:active {
+            transform: translateY(0);
+        }
+        .share-btn {
+            background: transparent;
+            color: #11998e;
+            border: 2px solid #11998e;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-left: 10px;
+        }
+        .share-btn:hover {
+            background: #11998e;
+            color: white;
+        }
+        .copied-toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #11998e;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            display: none;
+            animation: slideIn 0.3s ease;
+            z-index: 1000;
+        }
+        .copied-toast.show {
+            display: block;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateY(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        .device-info {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-top: 5px;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .device-info-text {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 1.1em;
+            white-space: nowrap;
+        }
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 15px;
+                max-width: 100%;
+            }
+            h1 {
+                font-size: 1.4em;
+            }
+            .subtitle {
+                font-size: 0.9em;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            .stat-card {
+                padding: 15px;
+            }
+            .stat-label {
+                font-size: 0.75em;
+            }
+            .stat-value {
+                font-size: 1.5em;
+            }
+            .controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .input-group {
+                width: 100%;
+            }
+            .date-input {
+                width: 100%;
+                padding: 10px 15px;
+                font-size: 0.95em;
+            }
+            .btn {
+                width: 100%;
+                padding: 12px 20px;
+            }
+            .chart-container {
+                height: 55vh;
+                min-height: 400px;
+                padding: 8px;
+                margin: 15px 0;
+            }
+            #dailyChartContainer {
+                height: 45vh !important;
+                min-height: 350px !important;
+            }
+            h2 {
+                font-size: 1.2em;
+                margin: 25px 0 12px 0;
+            }
+            h2 span {
+                display: block;
+                font-size: 0.7em;
+                margin-top: 3px;
+            }
+            .table-container {
+                font-size: 0.8em;
+                max-height: 350px;
+            }
+            th, td {
+                padding: 10px 6px;
+            }
+            th:nth-child(1), td:nth-child(1) {
+                width: 18%;
+            }
+            th:nth-child(2), td:nth-child(2) {
+                width: 45%;
+                font-size: 0.85em;
+            }
+            th:nth-child(3), td:nth-child(3) {
+                width: 22%;
+                font-size: 0.95em;
+            }
+            th:nth-child(4), td:nth-child(4) {
+                width: 15%;
+            }
+            .sample-badge {
+                padding: 2px 8px;
+                font-size: 0.85em;
+            }
+            .input-label::before {
+                content: "";
+            }
+            .footer {
+                font-size: 0.75em;
+                margin-top: 20px;
+            }
+            .setup-box {
+                padding: 25px;
+            }
+            .setup-box h2 {
+                font-size: 1.5em;
+            }
+            .setup-input {
+                font-size: 1em;
+                padding: 12px 15px;
+            }
+            .device-info {
+                display: flex;
+                flex-direction: column;
+                margin-top: 10px;
+                gap: 8px;
+                padding: 15px;
+            }
+            .device-info-text {
+                font-size: 1em;
+                margin-bottom: 5px;
+            }
+            .share-btn, .change-device-btn {
+                margin-left: 0;
+                width: 100%;
+                font-size: 0.9em;
+                padding: 10px 15px;
+            }
+            .copied-toast {
+                bottom: 15px;
+                right: 15px;
+                font-size: 0.9em;
+                padding: 12px 20px;
+            }
+        }
+        @media (min-width: 769px) and (max-width: 1366px) {
+            .chart-container {
+                height: 70vh;
+                min-height: 650px;
+            }
+        }
+        @media (min-width: 1367px) {
+            .chart-container {
+                height: 75vh;
+                min-height: 700px;
+            }
+        }
+        /* Dark Mode Styles */
+        body.dark-mode h1,
+        body.dark-mode h2 {
+            color: #e8e8e8;
+        }
+        body.dark-mode .subtitle {
+            color: #b8b8b8;
+        }
+        body.dark-mode .input-label {
+            color: #b8b8b8;
+        }
+        body.dark-mode .date-input {
+            background-color: #1a1a2e;
+            color: #e8e8e8;
+            border-color: #5fa8d3;
+        }
+        body.dark-mode .date-input:focus {
+            border-color: #38ef7d;
+            box-shadow: 0 0 0 3px rgba(95, 168, 211, 0.2);
+        }
+        body.dark-mode .loading {
+            color: #5fa8d3;
+        }
+        body.dark-mode .chart-container {
+            background-color: #16213e;
+        }
+        body.dark-mode table {
+            background-color: #16213e;
+        }
+        body.dark-mode th {
+            background: linear-gradient(135deg, #2E86AB 0%, #1a5f7a 100%);
+        }
+        body.dark-mode td {
+            color: #e8e8e8;
+            border-bottom-color: #2C3E50;
+        }
+        body.dark-mode tr {
+            border-bottom-color: #2C3E50;
+        }
+        body.dark-mode tr:hover {
+            background-color: #1a1a2e;
+        }
+        body.dark-mode tr.low-value {
+            background-color: rgba(235, 51, 73, 0.2);
+        }
+        body.dark-mode tr.high-value {
+            background-color: rgba(17, 153, 142, 0.2);
+        }
+        body.dark-mode td[style*="color: #555"] {
+            color: #aaa !important;
+        }
+        body.dark-mode .setup-box {
+            background-color: #0f3460;
+            color: #e8e8e8;
+        }
+        body.dark-mode .setup-box h2 {
+            color: #e8e8e8;
+        }
+        body.dark-mode .setup-box p {
+            color: #b8b8b8;
+        }
+        body.dark-mode .setup-input {
+            background-color: #1a1a2e;
+            color: #e8e8e8;
+            border-color: #5fa8d3;
+        }
+        body.dark-mode .setup-input:focus {
+            border-color: #38ef7d;
+            box-shadow: 0 0 0 3px rgba(95, 168, 211, 0.2);
+        }
+        body.dark-mode .device-info {
+            background-color: rgba(95, 168, 211, 0.15);
+        }
+        body.dark-mode .device-info-text {
+            color: #5fa8d3;
+        }
+        body.dark-mode .footer {
+            border-top-color: #2C3E50;
+            color: #7F8C8D;
+        }
+        body.dark-mode .error {
+            background: #c0392b;
+        }
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.5em;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        body.dark-mode .theme-toggle {
+            background: linear-gradient(135deg, #f39c12 0%, #f1c40f 100%);
+        }
+        .theme-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+        .theme-toggle:active {
+            transform: scale(0.95);
+        }
+        @media (max-width: 768px) {
+            .theme-toggle {
+                width: 45px;
+                height: 45px;
+                font-size: 1.3em;
+                top: 15px;
+                right: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeToggle" title="Toggle Dark Mode">
+        🌙
+    </button>
+    <div class="container">
+        <div id="setupScreen">
+            <div class="setup-box">
+                <h2>💧 KH Alkalinity Monitor</h2>
+                <p>Welcome! Please enter your device serial number to get started.</p>
+                <input
+                    type="text"
+                    id="setupDeviceInput"
+                    class="setup-input"
+                    placeholder="Enter Device Serial Number (e.g., KH1-00-00000)"
+                    autocomplete="off"
+                />
+                <button onclick="saveDeviceAndStart()" class="btn" style="width: 100%;">Continue</button>
+            </div>
+        </div>
+
+        <div id="mainContent" style="display: none;">
+            <div class="header">
+                <h1>💧 KH Alkalinity Monitor</h1>
+                <div class="subtitle">
+                    <div style="margin-bottom: 10px;">Real-time Water Chemistry Monitoring</div>
+                    <div class="device-info">
+                        <span class="device-info-text" id="currentDeviceDisplay"></span>
+                        <button onclick="shareDevice()" class="share-btn" title="Share this dashboard">📤 Share</button>
+                        <button onclick="changeDevice()" class="change-device-btn">⚙️ Change Device</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="input-group">
+                    <label class="input-label" for="dateInput">Date</label>
+                    <input type="date" id="dateInput" class="date-input" />
+                </div>
+                <button onclick="fetchData()" class="btn" id="fetchBtn">Load Data</button>
+            </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <div>Loading data...</div>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="content">
+            <div id="stats"></div>
+            <div class="chart-container">
+                <div id="chart"></div>
+            </div>
+
+            <h2>📅 Daily Alkalinity Averages <span style="font-size: 0.6em; color: #7F8C8D; font-weight: 400;">(Most Recent First)</span></h2>
+
+            <div class="chart-container" id="dailyChartContainer" style="display: none; height: 50vh; min-height: 400px; margin-bottom: 30px;">
+                <div id="dailyChart" style="width: 100%; height: 100%;"></div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Time Range</th>
+                            <th>Avg Alkalinity (dKH)</th>
+                            <th>Samples</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dailyTableBody"></tbody>
+                </table>
+            </div>
+
+            <div id="twoHourTableSection" style="display: none; margin-top: 40px;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <button onclick="loadTwoHourAverages()" class="btn" id="loadTwoHourBtn">
+                        🧪 Load 2-Hour Alkalinity Readings
+                    </button>
+                </div>
+                <div id="twoHourTableContainer" style="display: none;">
+                    <h2>🧪 2-Hour Alkalinity Readings <span style="font-size: 0.6em; color: #7F8C8D; font-weight: 400;">(Most Recent First)</span></h2>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Interval</th>
+                                    <th>Start - End Time</th>
+                                    <th>Avg Alkalinity (dKH)</th>
+                                    <th>Samples</th>
+                                </tr>
+                            </thead>
+                            <tbody id="twoHourTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer" id="footer"></div>
+        </div>
+        </div>
+
+        <div id="copiedToast" class="copied-toast">
+            ✅ Link copied to clipboard!
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE_URL = 'https://server.aquawiz.net/api/v1/query/device';
+        const DEVICE_ID_KEY = 'kh_dashboard_device_id';
+        const THEME_KEY = 'kh_dashboard_theme';
+
+        // Theme Management
+        function toggleTheme() {
+            const body = document.body;
+            const themeToggle = document.getElementById('themeToggle');
+
+            if (body.classList.contains('dark-mode')) {
+                body.classList.remove('dark-mode');
+                themeToggle.textContent = '🌙';
+                themeToggle.title = 'Toggle Dark Mode';
+                localStorage.setItem(THEME_KEY, 'light');
+            } else {
+                body.classList.add('dark-mode');
+                themeToggle.textContent = '☀️';
+                themeToggle.title = 'Toggle Light Mode';
+                localStorage.setItem(THEME_KEY, 'dark');
+            }
+
+            // Re-render charts with new colors if data exists
+            if (window.currentChartData) {
+                renderChart(
+                    window.currentChartData.timestamps,
+                    window.currentChartData.khValues,
+                    window.currentChartData.avgKH,
+                    window.currentChartData.minIdx,
+                    window.currentChartData.maxIdx,
+                    window.currentChartData.minKH,
+                    window.currentChartData.maxKH
+                );
+            }
+
+            // Re-render daily chart if it exists
+            if (window.currentDailyData) {
+                renderLineChart(window.currentDailyData.dailyAvgData, window.currentDailyData.avgKH);
+            }
+        }
+
+        function initTheme() {
+            const savedTheme = localStorage.getItem(THEME_KEY);
+            const themeToggle = document.getElementById('themeToggle');
+
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-mode');
+                themeToggle.textContent = '☀️';
+                themeToggle.title = 'Toggle Light Mode';
+            } else {
+                themeToggle.textContent = '🌙';
+                themeToggle.title = 'Toggle Dark Mode';
+            }
+        }
+
+        // Initialize the app
+        function initApp() {
+            // Check for URL parameter first (for sharing links)
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlDeviceId = urlParams.get('device');
+
+            if (urlDeviceId) {
+                // Save device ID from URL and use it
+                localStorage.setItem(DEVICE_ID_KEY, urlDeviceId);
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+                showMainContent(urlDeviceId);
+                return;
+            }
+
+            // Check localStorage
+            const savedDeviceId = localStorage.getItem(DEVICE_ID_KEY);
+
+            if (savedDeviceId) {
+                // Device ID exists, show main content
+                showMainContent(savedDeviceId);
+            } else {
+                // No device ID, show setup screen
+                showSetupScreen();
+            }
+        }
+
+        function showSetupScreen() {
+            document.getElementById('setupScreen').style.display = 'block';
+            document.getElementById('mainContent').style.display = 'none';
+        }
+
+        function showMainContent(deviceId) {
+            document.getElementById('setupScreen').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            document.getElementById('currentDeviceDisplay').textContent = deviceId;
+
+            // Set default date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('dateInput').value = today;
+
+            // Auto-load data
+            fetchData();
+        }
+
+        function saveDeviceAndStart() {
+            const deviceInput = document.getElementById('setupDeviceInput').value.trim();
+
+            if (!deviceInput) {
+                alert('Please enter a device serial number');
+                return;
+            }
+
+            // Validate format (basic check)
+            if (deviceInput.length < 5) {
+                alert('Please enter a valid device serial number');
+                return;
+            }
+
+            // Save to localStorage
+            localStorage.setItem(DEVICE_ID_KEY, deviceInput);
+
+            // Show main content
+            showMainContent(deviceInput);
+        }
+
+        function changeDevice() {
+            if (confirm('Are you sure you want to change the device? This will clear the current data.')) {
+                localStorage.removeItem(DEVICE_ID_KEY);
+                document.getElementById('content').classList.remove('visible');
+                showSetupScreen();
+                document.getElementById('setupDeviceInput').value = '';
+            }
+        }
+
+        async function shareDevice() {
+            const deviceId = localStorage.getItem(DEVICE_ID_KEY);
+            if (!deviceId) return;
+
+            const shareUrl = `${window.location.origin}${window.location.pathname}?device=${encodeURIComponent(deviceId)}`;
+
+            try {
+                // Try Web Share API first (mobile)
+                if (navigator.share) {
+                    await navigator.share({
+                        title: 'KH Alkalinity Monitor',
+                        text: `View KH alkalinity readings for device ${deviceId}`,
+                        url: shareUrl
+                    });
+                } else {
+                    // Fallback: Copy to clipboard
+                    await navigator.clipboard.writeText(shareUrl);
+                    showToast();
+                }
+            } catch (err) {
+                // Fallback if clipboard API fails
+                try {
+                    const textArea = document.createElement('textarea');
+                    textArea.value = shareUrl;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    showToast();
+                } catch (e) {
+                    alert(`Share URL: ${shareUrl}`);
+                }
+            }
+        }
+
+        function showToast() {
+            const toast = document.getElementById('copiedToast');
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        async function fetchData() {
+            const dateInput = document.getElementById('dateInput').value;
+            const deviceId = localStorage.getItem(DEVICE_ID_KEY);
+
+            if (!deviceId) {
+                showError('No device configured. Please set up your device.');
+                return;
+            }
+
+            if (!dateInput) {
+                showError('Please select a date');
+                return;
+            }
+
+            // Format date for API
+            const apiDate = `${dateInput}T00:00:00.000Z`;
+            const url = `${API_BASE_URL}/${deviceId}/graph?date=${apiDate}`;
+
+            // Show loading and reset UI
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('content').classList.remove('visible');
+            document.getElementById('fetchBtn').disabled = true;
+
+            // Reset 2-hour table section
+            document.getElementById('twoHourTableSection').style.display = 'none';
+            document.getElementById('loadTwoHourBtn').style.display = 'block';
+            document.getElementById('twoHourTableContainer').style.display = 'none';
+
+            // Reset daily chart
+            document.getElementById('dailyChartContainer').style.display = 'none';
+
+            try {
+                const response = await fetch(url, {
+                    method: 'GET'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (!data.results || data.results.length === 0) {
+                    throw new Error('No data available for this date');
+                }
+
+                processData(data);
+
+            } catch (error) {
+                const deviceId = localStorage.getItem(DEVICE_ID_KEY);
+                showError(`Error loading data for device ${deviceId}: ${error.message}. Please verify the device serial number and date.`);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('fetchBtn').disabled = false;
+            }
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function processData(data) {
+            // Extract timestamps and KH values
+            const timestamps = [];
+            const khValues = [];
+
+            data.results.forEach(([timestampMs, fields]) => {
+                timestamps.push(new Date(timestampMs));
+                khValues.push(fields.field22 / 1000); // Divide by 1000
+            });
+
+            // Calculate statistics
+            const minKH = Math.min(...khValues);
+            const maxKH = Math.max(...khValues);
+            const avgKH = khValues.reduce((a, b) => a + b, 0) / khValues.length;
+            const minIdx = khValues.indexOf(minKH);
+            const maxIdx = khValues.indexOf(maxKH);
+
+            // Always calculate daily averages
+            const dailyBins = {};
+            const dailyTimestamps = {};
+
+            timestamps.forEach((timestamp, idx) => {
+                const dateKey = timestamp.toISOString().split('T')[0];
+                if (!dailyBins[dateKey]) {
+                    dailyBins[dateKey] = [];
+                    dailyTimestamps[dateKey] = { first: timestamp, last: timestamp };
+                }
+                dailyBins[dateKey].push(khValues[idx]);
+                dailyTimestamps[dateKey].last = timestamp;
+            });
+
+            const dailyAvgData = [];
+            Object.keys(dailyBins).sort().reverse().forEach(key => {
+                const values = dailyBins[key];
+                const avg = values.reduce((a, b) => a + b, 0) / values.length;
+                const min = Math.min(...values);
+                const max = Math.max(...values);
+                const startTime = dailyTimestamps[key].first;
+                const endTime = dailyTimestamps[key].last;
+
+                const timeRange = `${startTime.toLocaleTimeString('en-US', {
+                    hour: '2-digit', minute: '2-digit'
+                })} - ${endTime.toLocaleTimeString('en-US', {
+                    hour: '2-digit', minute: '2-digit'
+                })}`;
+
+                dailyAvgData.push({
+                    label: key,
+                    timeRange: timeRange,
+                    value: avg,
+                    min: min,
+                    max: max,
+                    count: values.length
+                });
+            });
+
+            // Store data globally for later use (including 2-hour averages)
+            window.currentChartData = {
+                timestamps, khValues, avgKH, minIdx, maxIdx, minKH, maxKH
+            };
+
+            window.currentTableData = {
+                timestamps, khValues, avgKH
+            };
+
+            window.currentDailyData = {
+                dailyAvgData, avgKH
+            };
+
+            // Render everything
+            renderStats(data.device, data.sample_size, avgKH, maxKH, minKH);
+            renderDailyTable(dailyAvgData, avgKH);
+
+            // Show the 2-hour table section with button
+            document.getElementById('twoHourTableSection').style.display = 'block';
+
+            document.getElementById('footer').textContent =
+                `Generated on ${new Date().toLocaleString()}`;
+            document.getElementById('content').classList.add('visible');
+
+            // Render chart after content is visible to ensure proper sizing
+            setTimeout(() => {
+                renderChart(timestamps, khValues, avgKH, minIdx, maxIdx, minKH, maxKH);
+            }, 50);
+        }
+
+        function renderStats(device, sampleSize, avgKH, maxKH, minKH) {
+            const range = maxKH - minKH;
+            // Update device display without removing buttons
+            const deviceDisplay = document.getElementById('currentDeviceDisplay');
+            if (deviceDisplay) {
+                deviceDisplay.textContent = `${device} (${sampleSize} samples)`;
+            }
+
+            const html = `
+                <div class="stats-grid">
+                    <div class="stat-card blue">
+                        <div class="stat-label">💧 Average Alkalinity</div>
+                        <div class="stat-value">${avgKH.toFixed(3)} dKH</div>
+                    </div>
+                    <div class="stat-card green">
+                        <div class="stat-label">⬆️ Maximum</div>
+                        <div class="stat-value">${maxKH.toFixed(3)} dKH</div>
+                    </div>
+                    <div class="stat-card red">
+                        <div class="stat-label">⬇️ Minimum</div>
+                        <div class="stat-value">${minKH.toFixed(3)} dKH</div>
+                    </div>
+                    <div class="stat-card orange">
+                        <div class="stat-label">📊 Stability Range</div>
+                        <div class="stat-value">${range.toFixed(3)} dKH</div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('stats').innerHTML = html;
+        }
+
+        function renderChart(timestamps, khValues, avgKH, minIdx, maxIdx, minKH, maxKH) {
+            // Detect mobile device and theme
+            const isMobile = window.innerWidth <= 768;
+            const isDarkMode = document.body.classList.contains('dark-mode');
+
+            // Dark mode colors
+            const bgColor = isDarkMode ? '#16213e' : 'rgba(240,240,240,0.5)';
+            const gridColor = isDarkMode ? '#2C3E50' : 'LightGray';
+            const textColor = isDarkMode ? '#e8e8e8' : '#2C3E50';
+            const lineColor = isDarkMode ? '#5fa8d3' : 'black';
+
+            const trace = {
+                x: timestamps,
+                y: khValues,
+                mode: 'lines+markers',
+                name: 'Alkalinity Reading',
+                line: { color: '#2E86AB', width: isMobile ? 2 : 4, shape: 'spline' },
+                marker: {
+                    size: isMobile ? 5 : 10,
+                    color: khValues,
+                    colorscale: 'Viridis',
+                    showscale: !isMobile, // Hide colorbar on mobile
+                    colorbar: { title: "Alkalinity (dKH)", thickness: 15, len: 0.5 },
+                    line: { width: isMobile ? 1 : 2, color: 'white' }
+                },
+                hovertemplate: '<b>Time:</b> %{x|%Y-%m-%d %H:%M}<br>' +
+                              '<b>Alkalinity:</b> %{y:.3f} dKH<br>' +
+                              '<extra></extra>'
+            };
+
+            const minTrace = {
+                x: [timestamps[minIdx]],
+                y: [minKH],
+                mode: 'markers',
+                name: 'Min',
+                marker: { size: isMobile ? 12 : 20, color: 'red', symbol: 'x', line: { width: 2, color: 'darkred' } },
+                hovertemplate: `<b>Minimum Alkalinity</b><br>Value: ${minKH.toFixed(3)} dKH<br>Time: %{x|%Y-%m-%d %H:%M}<extra></extra>`
+            };
+
+            const maxTrace = {
+                x: [timestamps[maxIdx]],
+                y: [maxKH],
+                mode: 'markers',
+                name: 'Max',
+                marker: { size: isMobile ? 12 : 20, color: 'green', symbol: 'star', line: { width: 2, color: 'darkgreen' } },
+                hovertemplate: `<b>Maximum Alkalinity</b><br>Value: ${maxKH.toFixed(3)} dKH<br>Time: %{x|%Y-%m-%d %H:%M}<extra></extra>`
+            };
+
+            const layout = {
+                title: {
+                    text: '<b>KH Alkalinity Readings Over Time</b>',
+                    x: 0.5,
+                    xanchor: 'center',
+                    font: { size: isMobile ? 16 : 28, color: textColor }
+                },
+                xaxis: {
+                    title: {
+                        text: isMobile ? '<b>Time</b>' : '<b>Time</b>',
+                        font: { size: isMobile ? 12 : 16, color: textColor }
+                    },
+                    showgrid: true,
+                    gridwidth: 1,
+                    gridcolor: gridColor,
+                    showline: true,
+                    linewidth: isMobile ? 1 : 2,
+                    linecolor: lineColor,
+                    rangeslider: {
+                        visible: !isMobile,
+                        thickness: 0.05,
+                        borderwidth: 1,
+                        bordercolor: isDarkMode ? '#5fa8d3' : '#667eea'
+                    },
+                    tickfont: { size: isMobile ? 9 : 13, color: textColor },
+                    tickangle: isMobile ? -45 : 0
+                },
+                yaxis: {
+                    title: {
+                        text: '<b>Alkalinity (dKH)</b>',
+                        font: { size: isMobile ? 12 : 16, color: textColor }
+                    },
+                    showgrid: true,
+                    gridwidth: 1,
+                    gridcolor: gridColor,
+                    showline: true,
+                    linewidth: isMobile ? 1 : 2,
+                    linecolor: lineColor,
+                    tickfont: { size: isMobile ? 9 : 13, color: textColor }
+                },
+                hovermode: isMobile ? 'closest' : 'x unified',
+                template: isDarkMode ? 'plotly_dark' : 'plotly_white',
+                font: { size: isMobile ? 10 : 14, family: 'Arial', color: textColor },
+                plot_bgcolor: bgColor,
+                paper_bgcolor: isDarkMode ? '#16213e' : 'white',
+                margin: isMobile
+                    ? { l: 45, r: 15, t: 60, b: 80 }
+                    : { l: 70, r: 70, t: 100, b: 150 },
+                legend: {
+                    orientation: "h",
+                    yanchor: "bottom",
+                    y: isMobile ? 1.02 : 1.02,
+                    xanchor: isMobile ? "left" : "right",
+                    x: isMobile ? 0 : 1,
+                    font: { size: isMobile ? 9 : 12 }
+                },
+                shapes: [{
+                    type: 'line',
+                    x0: timestamps[0],
+                    x1: timestamps[timestamps.length - 1],
+                    y0: avgKH,
+                    y1: avgKH,
+                    line: {
+                        color: 'red',
+                        width: 2,
+                        dash: 'dash'
+                    }
+                }],
+                annotations: isMobile ? [] : [{
+                    x: timestamps[timestamps.length - 1],
+                    y: avgKH,
+                    text: `Average: ${avgKH.toFixed(3)} dKH`,
+                    showarrow: false,
+                    xanchor: 'left',
+                    xshift: 10,
+                    font: { size: 14, color: 'red', weight: 'bold' }
+                }]
+            };
+
+            const chartDiv = document.getElementById('chart');
+            const chartContainer = chartDiv.parentElement;
+
+            // Get actual container dimensions
+            const containerWidth = chartContainer.clientWidth - 40; // Account for padding
+            const containerHeight = chartContainer.clientHeight - 40;
+
+            // Update layout with actual dimensions
+            layout.width = containerWidth;
+            layout.height = containerHeight;
+
+            const config = {
+                responsive: true,
+                displayModeBar: !isMobile, // Hide toolbar on mobile to reduce clutter
+                displaylogo: false,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+                autosizable: true
+            };
+
+            Plotly.newPlot('chart', [trace, minTrace, maxTrace], layout, config).then(() => {
+                // Double-check sizing after plot is created
+                setTimeout(() => {
+                    const updatedContainer = document.getElementById('chart').parentElement;
+                    const newWidth = updatedContainer.clientWidth - 40;
+                    const newHeight = updatedContainer.clientHeight - 40;
+
+                    Plotly.relayout('chart', {
+                        width: newWidth,
+                        height: newHeight,
+                        'xaxis.autorange': true,
+                        'yaxis.autorange': true
+                    });
+                }, 150);
+            });
+        }
+
+        function renderDailyTable(dailyAvgData, avgKH) {
+            const dailyTbody = document.getElementById('dailyTableBody');
+            dailyTbody.innerHTML = '';
+
+            dailyAvgData.forEach(({ label, timeRange, value, count }) => {
+                const tr = document.createElement('tr');
+                let colorClass = '';
+                if (value < avgKH - 0.1) colorClass = 'low-value';
+                else if (value > avgKH + 0.1) colorClass = 'high-value';
+
+                tr.className = colorClass;
+                tr.innerHTML = `
+                    <td><strong>${label}</strong></td>
+                    <td style="font-size: 0.95em; color: #555;">${timeRange}</td>
+                    <td><strong>${value.toFixed(3)} dKH</strong></td>
+                    <td style="text-align: center;"><span class="sample-badge">${count}</span></td>
+                `;
+                dailyTbody.appendChild(tr);
+            });
+
+            // Render daily chart if we have multiple days
+            if (dailyAvgData.length > 1) {
+                renderLineChart(dailyAvgData, avgKH);
+                document.getElementById('dailyChartContainer').style.display = 'flex';
+            } else {
+                document.getElementById('dailyChartContainer').style.display = 'none';
+            }
+        }
+
+        function renderLineChart(dailyAvgData, avgKH) {
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            const isMobile = window.innerWidth <= 768;
+
+            // Dark mode colors
+            const bgColor = isDarkMode ? '#16213e' : 'rgba(240,240,240,0.5)';
+            const gridColor = isDarkMode ? '#2C3E50' : 'LightGray';
+            const textColor = isDarkMode ? '#e8e8e8' : '#2C3E50';
+            const lineColor = isDarkMode ? '#5fa8d3' : 'black';
+
+            // Reverse data to show chronologically (oldest to newest)
+            const reversedData = [...dailyAvgData].reverse();
+            const dates = reversedData.map(d => d.label);
+            const values = reversedData.map(d => d.value);
+            const counts = reversedData.map(d => d.count);
+
+            // Color bars based on value relative to average
+            const barColors = values.map(value => {
+                if (value < avgKH - 0.1) return isDarkMode ? 'rgba(235, 51, 73, 0.7)' : '#eb3349';
+                if (value > avgKH + 0.1) return isDarkMode ? 'rgba(17, 153, 142, 0.7)' : '#11998e';
+                return isDarkMode ? 'rgba(95, 168, 211, 0.7)' : '#2E86AB';
+            });
+
+            const trace = {
+                x: dates,
+                y: values,
+                type: 'bar',
+                name: 'Daily Average',
+                marker: {
+                    color: barColors,
+                    line: {
+                        color: isDarkMode ? '#5fa8d3' : '#2E86AB',
+                        width: 2
+                    }
+                },
+                text: values.map(v => v.toFixed(3)),
+                textposition: 'outside',
+                textfont: {
+                    size: isMobile ? 10 : 12,
+                    color: textColor
+                },
+                hovertemplate: '<b>Date:</b> %{x}<br>' +
+                              '<b>Average KH:</b> %{y:.3f}<br>' +
+                              '<b>Samples:</b> %{customdata}<br>' +
+                              '<extra></extra>',
+                customdata: counts
+            };
+
+            const layout = {
+                title: {
+                    text: '<b>Daily Average Trend</b>',
+                    font: { size: isMobile ? 16 : 22, color: textColor },
+                    x: 0.5,
+                    xanchor: 'center'
+                },
+                xaxis: {
+                    title: {
+                        text: '<b>Date</b>',
+                        font: { size: isMobile ? 12 : 14, color: textColor }
+                    },
+                    showgrid: true,
+                    gridcolor: gridColor,
+                    showline: true,
+                    linecolor: lineColor,
+                    tickfont: { size: isMobile ? 9 : 12, color: textColor },
+                    tickangle: isMobile ? -45 : -30
+                },
+                yaxis: {
+                    title: {
+                        text: '<b>Average KH</b>',
+                        font: { size: isMobile ? 12 : 14, color: textColor }
+                    },
+                    showgrid: true,
+                    gridcolor: gridColor,
+                    showline: true,
+                    linecolor: lineColor,
+                    tickfont: { size: isMobile ? 9 : 12, color: textColor }
+                },
+                template: isDarkMode ? 'plotly_dark' : 'plotly_white',
+                font: { size: isMobile ? 10 : 12, family: 'Arial', color: textColor },
+                plot_bgcolor: bgColor,
+                paper_bgcolor: isDarkMode ? '#16213e' : 'white',
+                margin: isMobile
+                    ? { l: 50, r: 20, t: 60, b: 80 }
+                    : { l: 70, r: 40, t: 80, b: 100 },
+                hovermode: 'closest',
+                shapes: [{
+                    type: 'line',
+                    x0: dates[0],
+                    x1: dates[dates.length - 1],
+                    y0: avgKH,
+                    y1: avgKH,
+                    line: {
+                        color: isDarkMode ? '#f39c12' : 'red',
+                        width: 2,
+                        dash: 'dash'
+                    }
+                }],
+                annotations: isMobile ? [] : [{
+                    x: dates[dates.length - 1],
+                    y: avgKH,
+                    text: `Overall Avg: ${avgKH.toFixed(3)} dKH`,
+                    showarrow: false,
+                    xanchor: 'left',
+                    xshift: 10,
+                    font: { size: 12, color: isDarkMode ? '#f39c12' : 'red', weight: 'bold' }
+                }]
+            };
+
+            const chartDiv = document.getElementById('dailyChart');
+            const chartContainer = chartDiv.parentElement;
+
+            // Get actual container dimensions
+            const containerWidth = chartContainer.clientWidth - 40;
+            const containerHeight = chartContainer.clientHeight - 40;
+
+            layout.width = containerWidth;
+            layout.height = containerHeight;
+
+            const config = {
+                responsive: true,
+                displayModeBar: !isMobile,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d']
+            };
+
+            Plotly.newPlot('dailyChart', [trace], layout, config).then(() => {
+                setTimeout(() => {
+                    const updatedContainer = document.getElementById('dailyChart').parentElement;
+                    const newWidth = updatedContainer.clientWidth - 40;
+                    const newHeight = updatedContainer.clientHeight - 40;
+
+                    Plotly.relayout('dailyChart', {
+                        width: newWidth,
+                        height: newHeight
+                    });
+                }, 100);
+            });
+        }
+
+        function renderLineChart(dailyAvgData, avgKH) {
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            const isMobile = window.innerWidth <= 768;
+
+            const bgColor = isDarkMode ? '#16213e' : 'rgba(240,240,240,0.5)';
+            const gridColor = isDarkMode ? '#2C3E50' : 'LightGray';
+            const textColor = isDarkMode ? '#e8e8e8' : '#2C3E50';
+            const lineColor = isDarkMode ? '#5fa8d3' : 'black';
+
+            const reversedData = [...dailyAvgData].reverse();
+            const dates = reversedData.map(d => d.label);
+            const values = reversedData.map(d => d.value);
+
+            const trace = {
+                x: dates,
+                y: values,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Daily Average',
+                line: {
+                    color: isDarkMode ? '#5fa8d3' : '#2E86AB',
+                    width: 3,
+                    shape: 'spline'
+                },
+                marker: {
+                    size: isMobile ? 8 : 12,
+                    color: isDarkMode ? '#38ef7d' : '#11998e',
+                    line: {
+                        color: isDarkMode ? '#5fa8d3' : '#2E86AB',
+                        width: 2
+                    }
+                },
+                hovertemplate: '<b>Date:</b> %{x}<br><b>Avg Alkalinity:</b> %{y:.3f} dKH<extra></extra>'
+            };
+
+            const layout = {
+                title: {
+                    text: '<b>Daily Alkalinity Trend</b>',
+                    font: { size: isMobile ? 16 : 22, color: textColor },
+                    x: 0.5,
+                    xanchor: 'center'
+                },
+                xaxis: {
+                    title: {
+                        text: '<b>Date</b>',
+                        font: { size: isMobile ? 12 : 14, color: textColor }
+                    },
+                    showgrid: true,
+                    gridcolor: gridColor,
+                    showline: true,
+                    linecolor: lineColor,
+                    tickfont: { size: isMobile ? 9 : 12, color: textColor },
+                    tickangle: isMobile ? -45 : -30
+                },
+                yaxis: {
+                    title: {
+                        text: '<b>Alkalinity (dKH)</b>',
+                        font: { size: isMobile ? 12 : 14, color: textColor }
+                    },
+                    showgrid: true,
+                    gridcolor: gridColor,
+                    showline: true,
+                    linecolor: lineColor,
+                    tickfont: { size: isMobile ? 9 : 12, color: textColor }
+                },
+                template: isDarkMode ? 'plotly_dark' : 'plotly_white',
+                font: { size: isMobile ? 10 : 12, family: 'Arial', color: textColor },
+                plot_bgcolor: bgColor,
+                paper_bgcolor: isDarkMode ? '#16213e' : 'white',
+                margin: isMobile
+                    ? { l: 50, r: 20, t: 60, b: 80 }
+                    : { l: 70, r: 40, t: 80, b: 100 },
+                hovermode: 'closest',
+                shapes: [{
+                    type: 'line',
+                    x0: dates[0],
+                    x1: dates[dates.length - 1],
+                    y0: avgKH,
+                    y1: avgKH,
+                    line: {
+                        color: isDarkMode ? '#f39c12' : 'red',
+                        width: 2,
+                        dash: 'dash'
+                    }
+                }],
+                annotations: isMobile ? [] : [{
+                    x: dates[dates.length - 1],
+                    y: avgKH,
+                    text: `Overall Avg: ${avgKH.toFixed(3)} dKH`,
+                    showarrow: false,
+                    xanchor: 'left',
+                    xshift: 10,
+                    font: { size: 12, color: isDarkMode ? '#f39c12' : 'red', weight: 'bold' }
+                }]
+            };
+
+            const chartDiv = document.getElementById('dailyChart');
+            const chartContainer = chartDiv.parentElement;
+
+            const containerWidth = chartContainer.clientWidth - 40;
+            const containerHeight = chartContainer.clientHeight - 40;
+
+            layout.width = containerWidth;
+            layout.height = containerHeight;
+
+            const config = {
+                responsive: true,
+                displayModeBar: !isMobile,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d']
+            };
+
+            Plotly.newPlot('dailyChart', [trace], layout, config).then(() => {
+                setTimeout(() => {
+                    const updatedContainer = document.getElementById('dailyChart').parentElement;
+                    const newWidth = updatedContainer.clientWidth - 40;
+                    const newHeight = updatedContainer.clientHeight - 40;
+
+                    Plotly.relayout('dailyChart', {
+                        width: newWidth,
+                        height: newHeight
+                    });
+                }, 100);
+            });
+        }
+
+        function loadTwoHourAverages() {
+            // Get stored data
+            const { timestamps, khValues, avgKH } = window.currentTableData;
+
+            // Calculate 2-hour averages
+            const twoHourBins = {};
+            const twoHourTimestamps = {};
+
+            timestamps.forEach((timestamp, idx) => {
+                const hoursSinceStart = (timestamp - timestamps[0]) / (1000 * 60 * 60);
+                const binKey = Math.floor(hoursSinceStart / 2) * 2;
+                if (!twoHourBins[binKey]) {
+                    twoHourBins[binKey] = [];
+                    twoHourTimestamps[binKey] = { first: timestamp, last: timestamp };
+                }
+                twoHourBins[binKey].push(khValues[idx]);
+                twoHourTimestamps[binKey].last = timestamp;
+            });
+
+            const twoHourAvgData = [];
+            Object.keys(twoHourBins).sort((a, b) => parseInt(b) - parseInt(a)).forEach(key => {
+                const values = twoHourBins[key];
+                const avg = values.reduce((a, b) => a + b, 0) / values.length;
+                const start = parseInt(key);
+                const end = start + 2;
+                const startTime = twoHourTimestamps[key].first;
+                const endTime = twoHourTimestamps[key].last;
+
+                const startStr = startTime.toLocaleString('en-US', {
+                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+                const endStr = endTime.toLocaleString('en-US', {
+                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+
+                twoHourAvgData.push({
+                    label: `Hour ${start}-${end}`,
+                    timeRange: `${startStr} - ${endStr}`,
+                    value: avg,
+                    count: values.length
+                });
+            });
+
+            // Render 2-hour table
+            const twoHourTbody = document.getElementById('twoHourTableBody');
+            twoHourTbody.innerHTML = '';
+
+            twoHourAvgData.forEach(({ label, timeRange, value, count }) => {
+                const tr = document.createElement('tr');
+                let colorClass = '';
+                if (value < avgKH - 0.1) colorClass = 'low-value';
+                else if (value > avgKH + 0.1) colorClass = 'high-value';
+
+                tr.className = colorClass;
+                tr.innerHTML = `
+                    <td><strong>${label}</strong></td>
+                    <td style="font-size: 0.95em; color: #555;">${timeRange}</td>
+                    <td><strong>${value.toFixed(3)} dKH</strong></td>
+                    <td style="text-align: center;"><span class="sample-badge">${count}</span></td>
+                `;
+                twoHourTbody.appendChild(tr);
+            });
+
+            // Hide button and show table
+            document.getElementById('loadTwoHourBtn').style.display = 'none';
+            document.getElementById('twoHourTableContainer').style.display = 'block';
+        }
+
+        // Initialize app on page load
+        window.addEventListener('load', () => {
+            initTheme(); // Load saved theme first
+            initApp();
+        });
+
+        // Allow Enter key to submit
+        document.addEventListener('DOMContentLoaded', () => {
+            // Setup screen Enter key
+            const setupInput = document.getElementById('setupDeviceInput');
+            if (setupInput) {
+                setupInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') saveDeviceAndStart();
+                });
+            }
+
+            // Main content Enter key
+            setTimeout(() => {
+                const dateInput = document.getElementById('dateInput');
+                if (dateInput) {
+                    dateInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') fetchData();
+                    });
+                }
+            }, 100);
+        });
+
+        // Handle window resize
+        let resizeTimer;
+        let lastWidth = window.innerWidth;
+
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                const currentWidth = window.innerWidth;
+                const crossedBreakpoint = (lastWidth <= 768 && currentWidth > 768) ||
+                                         (lastWidth > 768 && currentWidth <= 768);
+
+                // Handle main chart
+                const chartDiv = document.getElementById('chart');
+                if (chartDiv && chartDiv.data) {
+                    const chartContainer = chartDiv.parentElement;
+                    const containerWidth = chartContainer.clientWidth - 40;
+                    const containerHeight = chartContainer.clientHeight - 40;
+
+                    if (crossedBreakpoint && window.currentChartData) {
+                        renderChart(
+                            window.currentChartData.timestamps,
+                            window.currentChartData.khValues,
+                            window.currentChartData.avgKH,
+                            window.currentChartData.minIdx,
+                            window.currentChartData.maxIdx,
+                            window.currentChartData.minKH,
+                            window.currentChartData.maxKH
+                        );
+                    } else {
+                        Plotly.relayout('chart', {
+                            width: containerWidth,
+                            height: containerHeight
+                        });
+                    }
+                }
+
+                // Handle daily chart
+                const dailyChartDiv = document.getElementById('dailyChart');
+                if (dailyChartDiv && dailyChartDiv.data) {
+                    const dailyContainer = dailyChartDiv.parentElement;
+                    const dailyWidth = dailyContainer.clientWidth - 40;
+                    const dailyHeight = dailyContainer.clientHeight - 40;
+
+                    if (crossedBreakpoint && window.currentDailyData) {
+                        renderLineChart(
+                            window.currentDailyData.dailyAvgData,
+                            window.currentDailyData.avgKH
+                        );
+                    } else {
+                        Plotly.relayout('dailyChart', {
+                            width: dailyWidth,
+                            height: dailyHeight
+                        });
+                    }
+                }
+
+                lastWidth = currentWidth;
+            }, 250);
+        });
+    </script>
+</body>
+</html>

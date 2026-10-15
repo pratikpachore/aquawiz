@@ -83,6 +83,32 @@
             border-color: #764ba2;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
+        .presets {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 20px 0 0 0;
+        }
+        .preset-btn {
+            padding: 8px 18px;
+            font-size: 0.9em;
+            font-weight: 600;
+            color: #667eea;
+            background: transparent;
+            border: 2px solid #667eea;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .preset-btn:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+        .preset-btn.active {
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+        }
         .input-label {
             font-size: 0.9em;
             color: #555;
@@ -469,6 +495,11 @@
                 box-sizing: border-box;
                 margin: 0;
             }
+            .presets {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                padding: 0 15px;
+            }
             .btn {
                 width: 100%;
                 padding: 12px 20px;
@@ -591,6 +622,18 @@
             background-color: #1a1a2e;
             color: #e8e8e8;
             border-color: #5fa8d3;
+        }
+        body.dark-mode .preset-btn {
+            color: #5fa8d3;
+            border-color: #5fa8d3;
+        }
+        body.dark-mode .preset-btn:hover {
+            background: rgba(95, 168, 211, 0.15);
+        }
+        body.dark-mode .preset-btn.active {
+            color: white;
+            background: linear-gradient(135deg, #2E86AB 0%, #1a5f7a 100%);
+            border-color: transparent;
         }
         body.dark-mode .date-input:focus {
             border-color: #38ef7d;
@@ -732,10 +775,21 @@
                 </div>
             </div>
 
+            <div class="presets" id="presets">
+                <button class="preset-btn" data-preset="today" onclick="applyPreset('today')">Today</button>
+                <button class="preset-btn" data-preset="7d" onclick="applyPreset('7d')">Last 7 days</button>
+                <button class="preset-btn" data-preset="30d" onclick="applyPreset('30d')">Last 30 days</button>
+                <button class="preset-btn" data-preset="month" onclick="applyPreset('month')">This month</button>
+            </div>
+
             <div class="controls">
                 <div class="input-group">
-                    <label class="input-label" for="dateInput">Date</label>
+                    <label class="input-label" for="dateInput">Start Date</label>
                     <input type="date" id="dateInput" class="date-input" />
+                </div>
+                <div class="input-group">
+                    <label class="input-label" for="endDateInput">End Date</label>
+                    <input type="date" id="endDateInput" class="date-input" />
                 </div>
                 <button onclick="fetchData()" class="btn" id="fetchBtn">Load Data</button>
             </div>
@@ -810,6 +864,23 @@
         // Configuration
         const API_BASE_URL = 'https://server.aquawiz.net/api/v1/query/device';
         const DEVICE_ID_KEY = 'kh_dashboard_device_id';
+
+        // Device serial is kept in a cookie (1 year) with localStorage as a fallback
+        function getSavedDevice() {
+            const m = document.cookie.match(new RegExp('(?:^|; )' + DEVICE_ID_KEY + '=([^;]*)'));
+            if (m) return decodeURIComponent(m[1]);
+            return localStorage.getItem(DEVICE_ID_KEY);
+        }
+
+        function saveDevice(id) {
+            document.cookie = `${DEVICE_ID_KEY}=${encodeURIComponent(id)}; max-age=31536000; path=/; SameSite=Lax`;
+            localStorage.setItem(DEVICE_ID_KEY, id);
+        }
+
+        function clearDevice() {
+            document.cookie = `${DEVICE_ID_KEY}=; max-age=0; path=/; SameSite=Lax`;
+            localStorage.removeItem(DEVICE_ID_KEY);
+        }
         const THEME_KEY = 'kh_dashboard_theme';
 
         // Helper function to truncate to 1 decimal place (no rounding)
@@ -875,7 +946,7 @@
 
             if (urlDeviceId) {
                 // Save device ID from URL and use it
-                localStorage.setItem(DEVICE_ID_KEY, urlDeviceId);
+                saveDevice(urlDeviceId);
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
                 showMainContent(urlDeviceId);
@@ -883,7 +954,7 @@
             }
 
             // Check localStorage
-            const savedDeviceId = localStorage.getItem(DEVICE_ID_KEY);
+            const savedDeviceId = getSavedDevice();
 
             if (savedDeviceId) {
                 // Device ID exists, show main content
@@ -905,10 +976,36 @@
             document.getElementById('currentDeviceDisplay').textContent = deviceId;
 
             // Set default date to today
-            const today = new Date().toISOString().split('T')[0];
+            const now = new Date();
+            const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             document.getElementById('dateInput').value = today;
+            document.getElementById('endDateInput').value = today;
+            setActivePreset('today');
 
             // Auto-load data
+            fetchData();
+        }
+
+        function formatLocalDate(d) {
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        function setActivePreset(name) {
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.preset === name);
+            });
+        }
+
+        function applyPreset(name) {
+            const end = new Date();
+            const start = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+            if (name === '7d') start.setDate(start.getDate() - 6);
+            else if (name === '30d') start.setDate(start.getDate() - 29);
+            else if (name === 'month') start.setDate(1);
+
+            document.getElementById('dateInput').value = formatLocalDate(start);
+            document.getElementById('endDateInput').value = formatLocalDate(end);
+            setActivePreset(name);
             fetchData();
         }
 
@@ -927,7 +1024,7 @@
             }
 
             // Save to localStorage
-            localStorage.setItem(DEVICE_ID_KEY, deviceInput);
+            saveDevice(deviceInput);
 
             // Show main content
             showMainContent(deviceInput);
@@ -935,7 +1032,7 @@
 
         function changeDevice() {
             if (confirm('Are you sure you want to change the device? This will clear the current data.')) {
-                localStorage.removeItem(DEVICE_ID_KEY);
+                clearDevice();
                 document.getElementById('content').classList.remove('visible');
                 showSetupScreen();
                 document.getElementById('setupDeviceInput').value = '';
@@ -943,7 +1040,7 @@
         }
 
         async function shareDevice() {
-            const deviceId = localStorage.getItem(DEVICE_ID_KEY);
+            const deviceId = getSavedDevice();
             if (!deviceId) return;
 
             const shareUrl = `${window.location.origin}${window.location.pathname}?device=${encodeURIComponent(deviceId)}`;
@@ -987,7 +1084,8 @@
 
         async function fetchData() {
             const dateInput = document.getElementById('dateInput').value;
-            const deviceId = localStorage.getItem(DEVICE_ID_KEY);
+            const endDateInput = document.getElementById('endDateInput').value;
+            const deviceId = getSavedDevice();
 
             if (!deviceId) {
                 showError('No device configured. Please set up your device.');
@@ -999,8 +1097,17 @@
                 return;
             }
 
+            if (endDateInput && endDateInput < dateInput) {
+                showError('End date cannot be before start date');
+                return;
+            }
+
             // Format date for API
-            const apiDate = `${dateInput}T00:00:00.000Z`;
+            // Day boundaries use the browser's local time so the chart matches the dates picked
+            const [sy, sm, sd] = dateInput.split('-').map(Number);
+            const startLocal = new Date(sy, sm - 1, sd);
+            // Ask the API from the UTC day that contains local midnight, then trim locally
+            const apiDate = `${startLocal.toISOString().split('T')[0]}T00:00:00.000Z`;
             const url = `${API_BASE_URL}/${deviceId}/graph?date=${apiDate}`;
 
             // Show loading and reset UI
@@ -1032,10 +1139,21 @@
                     throw new Error('No data available for this date');
                 }
 
+                const startMs = startLocal.getTime();
+                let endMs = Infinity;
+                if (endDateInput) {
+                    const [ey, em, ed] = endDateInput.split('-').map(Number);
+                    endMs = new Date(ey, em - 1, ed + 1).getTime();
+                }
+                data.results = data.results.filter(([ts]) => ts >= startMs && ts < endMs);
+                if (data.results.length === 0) {
+                    throw new Error('No data available for this date range');
+                }
+
                 processData(data);
 
             } catch (error) {
-                const deviceId = localStorage.getItem(DEVICE_ID_KEY);
+                const deviceId = getSavedDevice();
                 showError(`Error loading data for device ${deviceId}: ${error.message}. Please verify the device serial number and date.`);
             } finally {
                 document.getElementById('loading').style.display = 'none';
@@ -1071,7 +1189,7 @@
             const dailyTimestamps = {};
 
             timestamps.forEach((timestamp, idx) => {
-                const dateKey = timestamp.toISOString().split('T')[0];
+                const dateKey = `${timestamp.getFullYear()}-${String(timestamp.getMonth() + 1).padStart(2, '0')}-${String(timestamp.getDate()).padStart(2, '0')}`;
                 if (!dailyBins[dateKey]) {
                     dailyBins[dateKey] = [];
                     dailyTimestamps[dateKey] = { first: timestamp, last: timestamp };
@@ -1739,6 +1857,11 @@
                     });
                 }
             }, 100);
+        });
+
+        // Editing a date by hand clears the preset highlight
+        ['dateInput', 'endDateInput'].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => setActivePreset(null));
         });
 
         // Handle window resize
